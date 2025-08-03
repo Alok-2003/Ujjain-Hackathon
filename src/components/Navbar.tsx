@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, MapPin } from 'lucide-react';
+import { Menu, X, MapPin, Globe } from 'lucide-react';
+import { useLanguage, Language } from '../contexts/LanguageContext';
 
 const Navbar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { language, setLanguage, t } = useLanguage();
 
   const navItems = [
-    { path: '/', label: 'Explore Map', icon: MapPin },
-    { path: '/hotels', label: 'All Hotels', icon: MapPin },
-    { path: '/shuttle', label: 'Shuttle Location', icon: MapPin },
-    { path: '/temples', label: 'Mandir List', icon: MapPin },
+    { path: '/', label: t.home, icon: MapPin },
+    { path: '/hotels', label: t.ghats, icon: MapPin },
+    { path: '/shuttle', label: t.accommodation, icon: MapPin },
+    { path: '/temples', label: t.parkingShuttle, icon: MapPin },
+    { path: '/temples', label: t.entryExit, icon: MapPin },
+    { path: '/temples', label: t.temples, icon: MapPin },
   ];
 
   const toggleMobileMenu = () => {
@@ -25,12 +29,14 @@ const Navbar: React.FC = () => {
           <div className="flex items-center space-x-2">
             <MapPin className="h-8 w-8 text-white" />
             <span className="text-white text-xl font-bold">
-              Ujjain Mahakumbh
+              {t.ujjainMahakumbh}
             </span>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex space-x-8">
+          {/* Desktop Navigation and Language Switcher */}
+          <div className="hidden md:flex items-center space-x-6">
+            {/* Navigation Links */}
+            <div className="flex space-x-6">
             {navItems.map((item) => (
               <Link
                 key={item.path}
@@ -44,10 +50,35 @@ const Navbar: React.FC = () => {
                 {item.label}
               </Link>
             ))}
+            </div>
+            
+            {/* Language Switcher */}
+            <div className="flex items-center space-x-2">
+              <Globe className="h-4 w-4 text-white" />
+              <select 
+                value={language} 
+                onChange={(e) => setLanguage(e.target.value as Language)}
+                className="bg-transparent text-white text-sm border border-white/30 rounded px-2 py-1 focus:outline-none focus:border-white"
+              >
+                <option value="en" className="text-gray-900">EN</option>
+                <option value="hi" className="text-gray-900">हि</option>
+                <option value="mr" className="text-gray-900">मर</option>
+              </select>
+            </div>
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center space-x-2">
+            {/* Mobile Language Switcher */}
+            <select 
+              value={language} 
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className="bg-transparent text-white text-xs border border-white/30 rounded px-1 py-1 focus:outline-none focus:border-white"
+            >
+              <option value="en" className="text-gray-900">EN</option>
+              <option value="hi" className="text-gray-900">हि</option>
+              <option value="mr" className="text-gray-900">मर</option>
+            </select>
             <button
               onClick={toggleMobileMenu}
               className="text-white hover:text-orange-200 transition-colors duration-200"

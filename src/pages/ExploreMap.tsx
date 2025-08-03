@@ -1,271 +1,295 @@
-import React, { useState } from 'react';
-import Map from '../components/Map';
-import { touristSpots, hotels, temples, shuttles, UJJAIN_CENTER } from '../data/sampleData';
-import { MapPin, Info } from 'lucide-react';
+import React, { useRef, useEffect, useState } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { parseCSV, LocationData, getCategoryColors } from '../utils/csvParser';
+import { useLanguage } from '../contexts/LanguageContext';
+
+// Set your Mapbox access token here
+mapboxgl.accessToken = 'pk.eyJ1IjoiYWxvazIwMDMiLCJhIjoiY201anNwZXRnMTAzbzJpc2ZtaHhudG1kNiJ9.3y0a5jiMDl42FUAN-Wy1Fg';
+
+
 
 const ExploreMap: React.FC = () => {
-  const [selectedItem, setSelectedItem] = useState<{id: string, type: string} | null>(null);
-  const [showLayer, setShowLayer] = useState({
-    touristSpots: true,
-    hotels: true,
-    temples: true,
-    shuttles: true
-  });
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const [locationData, setLocationData] = useState<LocationData[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [categories, setCategories] = useState<string[]>([]);
+  const [markers, setMarkers] = useState<mapboxgl.Marker[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  
+  const { t, translateCategory } = useLanguage();
 
-  const getMarkerColor = (type: string) => {
-    switch (type) {
-      case 'ghat':
-        return '#3B82F6'; // Blue
-      case 'event_area':
-        return '#EF4444'; // Red
-      case 'tourist_spot':
-        return '#10B981'; // Green
-      case 'hotel':
-        return '#8B5CF6'; // Purple
-      case 'temple':
-        return '#DC2626'; // Dark Red
-      case 'shuttle':
-        return '#F59E0B'; // Amber
-      default:
-        return '#FF6B35'; // Orange
-    }
-  };
-
-  // Combine all markers
-  const allMarkers = [
-    ...(showLayer.touristSpots ? touristSpots.map((spot) => ({
-      id: `spot-${spot.id}`,
-      coordinates: spot.coordinates,
-      title: spot.name,
-      description: `${spot.description} (${spot.type.replace('_', ' ')})`,
-      color: getMarkerColor(spot.type),
-      onClick: () => setSelectedItem({id: spot.id, type: 'spot'}),
-    })) : []),
-    ...(showLayer.hotels ? hotels.map((hotel) => ({
-      id: `hotel-${hotel.id}`,
-      coordinates: hotel.coordinates,
-      title: hotel.name,
-      description: `${hotel.rating}⭐ • ${hotel.price}`,
-      color: getMarkerColor('hotel'),
-      onClick: () => setSelectedItem({id: hotel.id, type: 'hotel'}),
-    })) : []),
-    ...(showLayer.temples ? temples.map((temple) => ({
-      id: `temple-${temple.id}`,
-      coordinates: temple.coordinates,
-      title: temple.name,
-      description: temple.significance,
-      color: getMarkerColor('temple'),
-      onClick: () => setSelectedItem({id: temple.id, type: 'temple'}),
-    })) : []),
-    ...(showLayer.shuttles ? shuttles.map((shuttle) => ({
-      id: `shuttle-${shuttle.id}`,
-      coordinates: shuttle.coordinates,
-      title: shuttle.name,
-      description: `${shuttle.status} • ${shuttle.currentPassengers}/${shuttle.capacity}`,
-      color: getMarkerColor('shuttle'),
-      onClick: () => setSelectedItem({id: shuttle.id, type: 'shuttle'}),
-    })) : [])
-  ];
-
-  const getSelectedItemData = () => {
-    if (!selectedItem) return null;
+  // Load CSV data
+  useEffect(() => {
+    const loadData = async () => {
+      console.log('Starting to load CSV data...');
+      try {
+        const data = await parseCSV('/Dataset.csv');
+        console.log('CSV data loaded:', data.length, 'items');
+        setLocationData(data);
+        
+        // Extract unique categories
+        const uniqueCategories = [...new Set(data.map(item => item.categoryName))].filter(Boolean);
+        console.log('Unique categories found:', uniqueCategories);
+        setCategories(uniqueCategories);
+        setSelectedCategories(new Set(uniqueCategories)); // Show all categories by default
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setLoading(false);
+      }
+    };
     
-    switch (selectedItem.type) {
-      case 'spot':
-        return touristSpots.find(spot => spot.id === selectedItem.id);
-      case 'hotel':
-        return hotels.find(hotel => hotel.id === selectedItem.id);
-      case 'temple':
-        return temples.find(temple => temple.id === selectedItem.id);
-      case 'shuttle':
-        return shuttles.find(shuttle => shuttle.id === selectedItem.id);
-      default:
-        return null;
+    loadData();
+  }, []);
+
+  // Initialize map
+  useEffect(() => {
+    if (map.current) return; // Initialize map only once
+    
+    console.log('Initializing map...');
+    
+    if (mapContainer.current) {
+      try {
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [75.7849, 23.1765], // Ujjain coordinates
+          zoom: 12
+        });
+
+        map.current.on('load', () => {
+          console.log('Map loaded successfully!');
+          setMapLoaded(true);
+        });
+
+        map.current.on('error', (e) => {
+          console.error('Map error:', e);
+        });
+
+        // Add navigation controls
+        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        
+        console.log('Map initialized');
+      } catch (error) {
+        console.error('Error initializing map:', error);
+      }
+    } else {
+      console.error('Map container not found');
     }
+  }, []);
+
+  // Update markers when data or filters change
+  useEffect(() => {
+    if (!map.current || loading) {
+      console.log('Map not ready or still loading:', { mapReady: !!map.current, loading });
+      return;
+    }
+
+    console.log('Updating markers. Location data:', locationData.length, 'Selected categories:', selectedCategories.size);
+
+    // Clear existing markers
+    markers.forEach(marker => marker.remove());
+    setMarkers([]);
+
+    // Filter data based on selected categories
+    const filteredData = locationData.filter(item => 
+      selectedCategories.has(item.categoryName)
+    );
+
+    console.log('Filtered data for markers:', filteredData.length);
+
+    // Create new markers
+    const newMarkers = filteredData.map((item, index) => {
+      console.log(`Creating marker ${index + 1}: ${item.title} at [${item.lng}, ${item.lat}]`);
+      
+      // Create marker element with better visibility
+      const el = document.createElement('div');
+      el.className = 'custom-marker';
+      el.style.backgroundColor = getCategoryColors(item.categoryName);
+      el.style.width = '16px';
+      el.style.height = '16px';
+      el.style.borderRadius = '50%';
+      el.style.border = '3px solid white';
+      el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+      el.style.cursor = 'pointer';
+      el.style.zIndex = '1000';
+
+      // Create enhanced popup content with comprehensive translations
+      const popupContent = `
+        <div class="p-4 max-w-sm bg-white rounded-lg shadow-lg">
+          <h3 class="font-bold text-lg mb-2 text-gray-900">${item.title}</h3>
+          <div class="flex items-center mb-3">
+            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+              ${translateCategory(item.categoryName)}
+            </span>
+            ${item.hotelStars ? `<span class="ml-2 text-sm text-yellow-600">${item.hotelStars} ${t.hotelStars}</span>` : ''}
+          </div>
+          
+          ${item.hotelDescription ? `
+          <div class="mb-3">
+            <h4 class="font-medium text-sm text-gray-700 mb-1">${t.about}:</h4>
+            <p class="text-sm text-gray-600 leading-relaxed">${item.hotelDescription}</p>
+          </div>` : ''}
+          
+          <div class="space-y-2 text-sm">
+            ${item.address ? `
+            <div class="flex items-start">
+              <span class="font-medium text-gray-700 min-w-0 flex-shrink-0 mr-2">${t.address}:</span>
+              <span class="text-gray-600">${item.address}</span>
+            </div>` : ''}
+            
+            ${item.phone ? `
+            <div class="flex items-center">
+              <span class="font-medium text-gray-700 mr-2">${t.phone}:</span>
+              <a href="tel:${item.phone}" class="text-blue-600 hover:text-blue-800">${item.phone}</a>
+            </div>` : ''}
+            
+            ${item.website ? `
+            <div class="flex items-center">
+              <span class="font-medium text-gray-700 mr-2">${t.website}:</span>
+              <a href="${item.website}" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs truncate">
+                ${t.viewDetails}
+              </a>
+            </div>` : ''}
+          </div>
+          
+          ${item.imageUrl ? `
+          <div class="mt-3">
+            <img src="${item.imageUrl}" alt="${item.title}" 
+                 class="w-full h-32 object-cover rounded-lg" 
+                 onerror="this.style.display='none'" />
+          </div>` : ''}
+          
+          <div class="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">
+            <span>${t.location}: ${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}</span>
+          </div>
+        </div>
+      `;
+
+      const popup = new mapboxgl.Popup({ offset: 25 })
+        .setHTML(popupContent);
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([item.lng, item.lat])
+        .setPopup(popup)
+        .addTo(map.current!);
+
+      return marker;
+    });
+
+    console.log('Created markers:', newMarkers.length);
+    setMarkers(newMarkers);
+
+    // Fit map to show all markers if we have data
+    if (newMarkers.length > 0 && filteredData.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds();
+      filteredData.forEach(item => {
+        bounds.extend([item.lng, item.lat]);
+      });
+      
+      try {
+        map.current.fitBounds(bounds, {
+          padding: { top: 50, bottom: 50, left: 300, right: 50 } // Account for sidebar
+        });
+      } catch (error) {
+        console.error('Error fitting bounds:', error);
+      }
+    }
+  }, [locationData, selectedCategories, loading]);
+
+  const toggleCategory = (category: string) => {
+    const newSelected = new Set(selectedCategories);
+    if (newSelected.has(category)) {
+      newSelected.delete(category);
+    } else {
+      newSelected.add(category);
+    }
+    setSelectedCategories(newSelected);
   };
 
-  const selectedItemData = getSelectedItemData();
+  const toggleAll = () => {
+    if (selectedCategories.size === categories.length) {
+      setSelectedCategories(new Set());
+    } else {
+      setSelectedCategories(new Set(categories));
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Complete Ujjain Mahakumbh Map
-          </h1>
-          <p className="text-gray-600">
-            Explore all locations: temples, hotels, shuttles, ghats, and tourist spots
-          </p>
+    <div className="w-full h-screen relative">
+      {/* Loading State */}
+      {loading && (
+        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+          <div className="text-xl">{t.loadingMapData}</div>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar with legend and info */}
-          <div className="lg:col-span-1">
-            {/* Layer Controls */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h3 className="text-lg font-semibold mb-4">Map Layers</h3>
-              <div className="space-y-3">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLayer.touristSpots}
-                    onChange={(e) => setShowLayer(prev => ({...prev, touristSpots: e.target.checked}))}
-                    className="rounded"
-                  />
-                  <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-                  <span className="text-sm">Tourist Spots & Ghats</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLayer.hotels}
-                    onChange={(e) => setShowLayer(prev => ({...prev, hotels: e.target.checked}))}
-                    className="rounded"
-                  />
-                  <div className="w-4 h-4 rounded-full bg-purple-500"></div>
-                  <span className="text-sm">Hotels</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLayer.temples}
-                    onChange={(e) => setShowLayer(prev => ({...prev, temples: e.target.checked}))}
-                    className="rounded"
-                  />
-                  <div className="w-4 h-4 rounded-full bg-red-600"></div>
-                  <span className="text-sm">Temples</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLayer.shuttles}
-                    onChange={(e) => setShowLayer(prev => ({...prev, shuttles: e.target.checked}))}
-                    className="rounded"
-                  />
-                  <div className="w-4 h-4 rounded-full bg-amber-500"></div>
-                  <span className="text-sm">Shuttles</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h3 className="text-lg font-semibold mb-4">Legend</h3>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-                  <span className="text-sm">Ghats & Tourist Spots</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-red-500"></div>
-                  <span className="text-sm">Event Areas</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-red-600"></div>
-                  <span className="text-sm">Sacred Temples</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-purple-500"></div>
-                  <span className="text-sm">Hotels</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 rounded-full bg-amber-500"></div>
-                  <span className="text-sm">Shuttle Services</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Selected spot info */}
-            {selectedItemData && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex items-start space-x-2 mb-3">
-                  <MapPin className="h-5 w-5 text-orange-500 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-lg">
-                      {selectedItemData.name || selectedItemData.title}
-                    </h3>
-                    <span className="inline-block px-2 py-1 bg-orange-100 text-xs rounded-full mt-1 capitalize">
-                      {selectedItem?.type}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-gray-600 text-sm">
-                  {selectedItemData.description || 
-                   selectedItemData.significance || 
-                   selectedItemData.address ||
-                   `${selectedItemData.route || ''}`}
-                </div>
-                {selectedItem?.type === 'hotel' && selectedItemData.price && (
-                  <div className="mt-2 text-green-600 font-semibold">
-                    {selectedItemData.price}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Map */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <Map
-                center={UJJAIN_CENTER}
-                zoom={14}
-                markers={allMarkers}
-                className="h-96 lg:h-[600px]"
-              />
-            </div>
-          </div>
+      )}
+      
+      {/* Map Status */}
+      {!mapLoaded && (
+        <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-3 py-1 rounded text-sm z-20">
+          {t.mapInitializing}
         </div>
+      )}
+      
 
-        {/* Tourist spots grid */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-semibold mb-6">All Locations ({allMarkers.length} total)</h2>
-          
-          {/* Summary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg shadow-md text-center">
-              <div className="text-2xl font-bold text-blue-600">{touristSpots.length}</div>
-              <div className="text-sm text-gray-600">Tourist Spots</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-md text-center">
-              <div className="text-2xl font-bold text-purple-600">{hotels.length}</div>
-              <div className="text-sm text-gray-600">Hotels</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-md text-center">
-              <div className="text-2xl font-bold text-red-600">{temples.length}</div>
-              <div className="text-sm text-gray-600">Temples</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow-md text-center">
-              <div className="text-2xl font-bold text-amber-600">{shuttles.length}</div>
-              <div className="text-sm text-gray-600">Shuttles</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {touristSpots.map((spot) => (
-              <div
-                key={spot.id}
-                className={`bg-white rounded-lg shadow-md p-6 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                  selectedItem?.id === spot.id && selectedItem?.type === 'spot' ? 'ring-2 ring-orange-500' : ''
-                }`}
-                onClick={() => setSelectedItem({id: spot.id, type: 'spot'})}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-lg">{spot.name}</h3>
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: getMarkerColor(spot.type) }}
-                  ></div>
-                </div>
-                <p className="text-gray-600 text-sm mb-3">{spot.description}</p>
-                <span className="inline-block px-3 py-1 bg-gray-100 text-xs rounded-full capitalize">
-                  {spot.type.replace('_', ' ')}
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* Category Filter Box */}
+      <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-4 max-w-sm max-h-[45rem] overflow-y-auto">
+        <h3 className="font-bold text-lg mb-3">{t.categories}</h3>
+        
+        {/* Toggle All Button */}
+        <button
+          onClick={toggleAll}
+          className="w-full mb-3 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        >
+          {selectedCategories.size === categories.length ? t.hideAll : t.showAll}
+        </button>
+        
+        {/* Category Checkboxes */}
+        <div className="space-y-2">
+          {categories.map(category => {
+            const isSelected = selectedCategories.has(category);
+            const color = getCategoryColors(category);
+            const count = locationData.filter(item => item.categoryName === category).length;
+            
+            return (
+              <label key={category} className="flex items-center space-x-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleCategory(category)}
+                  className="form-checkbox"
+                />
+                <div 
+                  className="w-4 h-4 rounded-full border-2 border-white shadow"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-sm flex-1">{translateCategory(category)}</span>
+                <span className="text-xs text-gray-500">({count})</span>
+              </label>
+            );
+          })}
+        </div>
+        
+        {/* Stats */}
+        <div className="mt-4 pt-3 border-t border-gray-200 text-sm text-gray-600">
+          <p>{t.showing} {markers.length} {t.of} {locationData.length} {t.locations}</p>
         </div>
       </div>
+
+      {/* Map Container */}
+      <div 
+        ref={mapContainer} 
+        className="w-full h-full"
+        style={{ 
+          minHeight: '100vh',
+          position: 'relative',
+          backgroundColor: '#f0f0f0'
+        }}
+      />
     </div>
   );
 };
