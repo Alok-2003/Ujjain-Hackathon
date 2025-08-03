@@ -21,6 +21,48 @@ const ExploreMap: React.FC = () => {
   
   const { t, translateCategory } = useLanguage();
 
+  // Function to create custom marker element based on category
+  const createMarkerElement = (categoryName: string) => {
+    const el = document.createElement('div');
+    el.className = 'custom-marker';
+    el.style.cursor = 'pointer';
+    el.style.zIndex = '1000';
+    
+    if (categoryName.toLowerCase() === 'restaurant') {
+      // Use custom restaurant icon
+      el.style.width = '32px';
+      el.style.height = '32px';
+      el.style.backgroundImage = 'url(/restaurant.png)';
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.style.backgroundRepeat = 'no-repeat';
+      el.style.borderRadius = '8px';
+      el.style.border = '2px solid white';
+      el.style.boxShadow = '0 3px 10px rgba(0,0,0,0.4)';
+    } else if (categoryName.toLowerCase() === 'hindu temple') {
+      // Use custom temple icon
+      el.style.width = '32px';
+      el.style.height = '32px';
+      el.style.backgroundImage = 'url(/temple.png)';
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.style.backgroundRepeat = 'no-repeat';
+      el.style.borderRadius = '8px';
+      el.style.border = '2px solid white';
+      el.style.boxShadow = '0 3px 10px rgba(0,0,0,0.4)';
+    } else {
+      // Use colored circle for other categories
+      el.style.backgroundColor = getCategoryColors(categoryName);
+      el.style.width = '16px';
+      el.style.height = '16px';
+      el.style.borderRadius = '50%';
+      el.style.border = '3px solid white';
+      el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+    }
+    
+    return el;
+  };
+
   // Load CSV data
   useEffect(() => {
     const loadData = async () => {
@@ -106,17 +148,8 @@ const ExploreMap: React.FC = () => {
     const newMarkers = filteredData.map((item, index) => {
       console.log(`Creating marker ${index + 1}: ${item.title} at [${item.lng}, ${item.lat}]`);
       
-      // Create marker element with better visibility
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      el.style.backgroundColor = getCategoryColors(item.categoryName);
-      el.style.width = '16px';
-      el.style.height = '16px';
-      el.style.borderRadius = '50%';
-      el.style.border = '3px solid white';
-      el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
-      el.style.cursor = 'pointer';
-      el.style.zIndex = '1000';
+      // Create custom marker element based on category
+      const el = createMarkerElement(item.categoryName);
 
       // Create enhanced popup content with comprehensive translations
       const popupContent = `
@@ -230,14 +263,14 @@ const ExploreMap: React.FC = () => {
       
       {/* Map Status */}
       {!mapLoaded && (
-        <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-3 py-1 rounded text-sm z-20">
+        <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-3 py-1 rounded text-sm z-10">
           {t.mapInitializing}
         </div>
       )}
       
 
       {/* Category Filter Box */}
-      <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-4 max-w-sm max-h-[45rem] overflow-y-auto">
+      <div className="absolute top-4 left-4 z-50 bg-white rounded-lg shadow-lg p-4 max-w-sm max-h-[45rem] overflow-y-auto">
         <h3 className="font-bold text-lg mb-3">{t.categories}</h3>
         
         {/* Toggle All Button */}
