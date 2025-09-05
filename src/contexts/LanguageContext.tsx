@@ -12,7 +12,11 @@ export const translations = {
     parkingShuttle: 'Parking & Shuttle',
     entryExit: 'Entry/Exit',
     temples: 'Temples',
+    hospital: 'Hospitals',
+    workers: 'Workers',
     ujjainMahakumbh: 'Ujjain Mahakumbh',
+    dustbins: 'Dustbins',
+    toilets: 'Toilets',
     
     // Map Interface
     categories: 'Categories',
@@ -81,7 +85,11 @@ export const translations = {
     parkingShuttle: 'पार्किंग और शटल',
     entryExit: 'प्रवेश/निकास',
     temples: 'मंदिर',
+    hospital: 'अस्पताल',
+    workers: 'कर्मचारी',
     ujjainMahakumbh: 'उज्जैन महाकुंभ',
+    dustbins: 'कूड़ेदान',
+    toilets: 'शौचालय',
     
     // Map Interface
     categories: 'श्रेणियां',
@@ -150,7 +158,11 @@ export const translations = {
     parkingShuttle: 'पार्किंग आणि शटल',
     entryExit: 'प्रवेश/बाहेर पडणे',
     temples: 'मंदिरे',
+    hospital: 'रुग्णालये',
+    workers: 'कामगार',
     ujjainMahakumbh: 'उज्जैन महाकुंभ',
+    dustbins: 'कचरा पेट्या',
+    toilets: 'स्वच्छतागृहे',
     
     // Map Interface
     categories: 'श्रेणी',

@@ -10,11 +10,10 @@ const Navbar: React.FC = () => {
 
   const navItems = [
     { path: '/', label: t.home, icon: MapPin },
-    { path: '/hotels', label: t.ghats, icon: MapPin },
-    { path: '/shuttle', label: t.accommodation, icon: MapPin },
-    { path: '/temples', label: t.parkingShuttle, icon: MapPin },
-    { path: '/temples', label: t.entryExit, icon: MapPin },
-    { path: '/temples', label: t.temples, icon: MapPin },
+    { path: '/travel', label: t.hospital, icon: MapPin },
+    { path: '/workers', label: t.workers, icon: MapPin },
+    { path: '/dustbins', label: t.dustbins, icon: MapPin },
+    { path: '/toilets', label: t.toilets, icon: MapPin },
   ];
 
   const toggleMobileMenu = () => {

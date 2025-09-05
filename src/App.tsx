@@ -1,11 +1,12 @@
-import React from 'react';
+ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Navbar from './components/Navbar';
 import ExploreMap from './pages/ExploreMap';
-import AllHotels from './pages/AllHotels';
-import ShuttleLocation from './pages/ShuttleLocation';
-import MandirList from './pages/MandirList';
+import Travel from './pages/Travel';
+import WorkerManage from './pages/WorkerManage';
+import Dustbins from './pages/Dustbins';
+import Toilets from './pages/Toilets';
 
 function App() {
   return (
@@ -16,9 +17,10 @@ function App() {
           <main>
             <Routes>
               <Route path="/" element={<ExploreMap />} />
-              <Route path="/hotels" element={<AllHotels />} />
-              <Route path="/shuttle" element={<ShuttleLocation />} />
-              <Route path="/temples" element={<MandirList />} />
+              <Route path="/travel" element={<Travel />} />
+              <Route path="/workers" element={<WorkerManage />} />
+              <Route path="/dustbins" element={<Dustbins />} />
+              <Route path="/toilets" element={<Toilets />} />
             </Routes>
           </main>
         </div>
